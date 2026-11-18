@@ -8,7 +8,7 @@ what just broke and takes it.
 | flow | who | what happens |
 |------|-----|--------------|
 | `open-board` | on-call | opens the board; sees tonight's incidents |
-| `ack-incident` | on-call | picks an incident on the board and acks it — "I've got this one" |
+| `ack-incident` | on-call | picks an incident on the board, presses Ack, reads the confirm that names the incident id, and confirms — "I've got this one" |
 | `watch-board` | on-call | keeps the board open; it stays current without a reload |
 
 ## Requirements
@@ -18,6 +18,10 @@ what just broke and takes it.
 - **R3** Show a loader until incidents load.
 - **R4** The board refreshes itself every 2 seconds while open.
 - **R5** Times show in the viewer's local time; day before month for EU locales (dd/mm).
+- **R7** Ack asks to confirm before it sends, and the confirm names the incident id it will ack. Confirm sends
+  the ack for that id; Cancel (or Esc) sends nothing. New incidents still arrive live at the top (R1) and Ack
+  stays on the row (R2). Product decision after the step-1 recording: a new incident landing during a click
+  moved the rows, and the click acked INC-5696 instead of INC-7128.
 - **R6** The page names its build: `<meta name="build" content="<git sha>">` in the head and the same sha in the footer.
 
 ## Hooks (pinned — tests and the replay rely on them)
@@ -32,6 +36,9 @@ what just broke and takes it.
 | `ack` | the Ack button in a row |
 | `acked` | the acked mark in a row |
 | `build-sha` | the sha in the footer |
+| `confirm` | the Ack confirm, naming the incident id (R7) |
+| `confirm-ack` | the confirm's Ack button |
+| `confirm-cancel` | the confirm's Cancel button |
 
 ## Done
 

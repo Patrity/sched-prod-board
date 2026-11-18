@@ -41,30 +41,58 @@ function setAction(li) {
   slot.querySelector('button').addEventListener('click', onAck);
 }
 
-async function onAck(e) {
-  const btn = e.currentTarget;
-  const li = btn.closest('[data-testid="incident-row"]');
+// R7: Ack asks to confirm, and the confirm names the incident it will ack. The id is bound when the
+// button is pressed, so a list that moves while the confirm is open cannot change which incident is acked.
+const confirmBox = document.querySelector('[data-testid="confirm"]');
+const confirmText = confirmBox.querySelector('.confirm-text');
+const confirmAck = confirmBox.querySelector('[data-testid="confirm-ack"]');
+const confirmCancel = confirmBox.querySelector('[data-testid="confirm-cancel"]');
+let pending = null;
+
+function onAck(e) {
+  const li = e.currentTarget.closest('[data-testid="incident-row"]');
   const id = li.dataset.id;
-  btn.disabled = true;
-  btn.textContent = 'Acking…';
+  const what = li.querySelector('.what').textContent;
+  pending = { id, li };
+  confirmText.innerHTML = `Ack <strong>${esc(id)}</strong>?<br><span class="confirm-what">${esc(what)}</span>`;
+  confirmAck.textContent = `Ack ${id}`;
+  confirmBox.hidden = false;
+  confirmAck.focus();
+}
+
+function closeConfirm() {
+  confirmBox.hidden = true;
+  pending = null;
+}
+
+confirmCancel.addEventListener('click', closeConfirm);
+confirmBox.addEventListener('click', (e) => { if (e.target === confirmBox) closeConfirm(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !confirmBox.hidden) closeConfirm(); });
+
+confirmAck.addEventListener('click', async () => {
+  if (!pending) return;
+  const { id, li } = pending;
+  closeConfirm();
+  const btn = li.querySelector('[data-testid="ack"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Acking…'; }
   try {
     await ack(id); // R2
     acked.add(id);
   } catch (err) {
     console.error(err);
-    btn.textContent = 'Retry';
-  } finally {
-    btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Retry'; }
+    return;
   }
   setAction(li);
-}
+});
 
 // R1: keep existing rows (and their state); add new incidents at the top, newest first.
 function render(incidents) {
   const byId = new Map([...list.children].map((li) => [li.dataset.id, li]));
   const firstLoad = byId.size === 0;
   const wanted = new Set(incidents.map((i) => i.id));
-  for (const [id, li] of byId) if (!wanted.has(id)) li.remove();
+  // Rows are never taken off the board while it is open: an incident that leaves the feed stays, marked.
+  for (const [id, li] of byId) li.classList.toggle('is-gone', !wanted.has(id));
   let prev = null;
   for (const i of incidents) {
     let li = byId.get(i.id);
@@ -85,11 +113,12 @@ function render(incidents) {
         t.textContent = fmt.format(new Date(i.openedAt));
       }
     }
+    if (li.isConnected) { prev = li; continue; }
     const ref = prev ? prev.nextSibling : list.firstChild;
-    if (ref !== li) list.insertBefore(li, ref);
+    list.insertBefore(li, ref);
     prev = li;
   }
-  empty.hidden = incidents.length > 0;
+  empty.hidden = list.children.length > 0;
 }
 
 async function tick() {
